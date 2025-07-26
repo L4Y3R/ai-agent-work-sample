@@ -7,8 +7,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 app = FastAPI()
+
+# CORS setup - MUST be before route definitions
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def root():
@@ -21,21 +29,8 @@ class Query(BaseModel):
 def process_query(request: Query):
     datasets = load_data_files()
     user_query = request.query
-
     # Get code from LLM
     code = run_openai_code_agent(datasets, user_query)
-    
     # Execute code
     output = execute_user_code(code, datasets)
-    
-    return {"code": code, "output": output}
-
-
-# CORS setup
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    return {"output": output}

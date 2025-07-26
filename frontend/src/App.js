@@ -1,9 +1,10 @@
 import './App.css';
+import Home from './pages/Home';
 
 function App() {
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-blue-600">Ai Agent</h1>
+    <div className="min-h-screen bg-gray-100 text-gray-900">
+      <Home/>
     </div>
   );
 }

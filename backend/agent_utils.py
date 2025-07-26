@@ -94,18 +94,26 @@ IMPORTANT GUIDELINES:
 2. All DataFrames have standardized columns: 'timestamp', 'co2', 'temperature', 'humidity'
 3. Always work with copies of DataFrames to avoid pandas warnings: df = df.copy()
 4. Always convert timestamps properly: df['timestamp'] = pd.to_datetime(df['timestamp'])
-5. For time-based analysis, use pandas datetime operations
-6. Your final output should be either:
+5. **CRITICAL**: When comparing timestamps, ensure timezone consistency:
+   - Use pd.Timestamp with timezone: pd.Timestamp('2025-07-19', tz='UTC')
+   - Or make timestamps timezone-naive: df['timestamp'].dt.tz_localize(None)
+   - Or use datetime with timezone: datetime(2025, 7, 19, tzinfo=pytz.UTC)
+6. For time-based analysis, use pandas datetime operations
+7. Your final output should be either:
    - A pandas DataFrame (assign to variable 'result')
    - A descriptive string (assign to variable 'result')
-7. Round numeric values to 2 decimal places for readability
-8. Handle missing data gracefully
-9. Use .loc[] for setting values to avoid pandas warnings
+8. Round numeric values to 2 decimal places for readability
+9. Handle missing data gracefully
+10. Use .loc[] for setting values to avoid pandas warnings
 
 EXAMPLES:
 
-Example 1 - Hourly temperature analysis:
+Example 1 - Last week analysis (timezone-aware):
 ```python
+# Get current time in UTC
+now = pd.Timestamp.now(tz='UTC')
+one_week_ago = now - pd.Timedelta(days=7)
+
 # Combine all room data
 all_rooms = []
 room_names = [name for name in locals().keys() if 'Room' in name]
@@ -114,20 +122,26 @@ for room_name in room_names:
     if room_name in locals():
         df = locals()[room_name].copy()
         df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df.loc[:, 'room'] = room_name
-        all_rooms.append(df)
+        
+        # Ensure timezone consistency
+        if df['timestamp'].dt.tz is None:
+            df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
+        
+        # Filter for last week
+        last_week_data = df[df['timestamp'] >= one_week_ago]
+        if not last_week_data.empty:
+            last_week_data.loc[:, 'room'] = room_name
+            all_rooms.append(last_week_data)
 
 if all_rooms:
     combined = pd.concat(all_rooms, ignore_index=True)
-    combined.loc[:, 'hour'] = combined['timestamp'].dt.hour
-    hourly_temp = combined.groupby('hour')['temperature'].mean().reset_index()
-    hourly_temp.loc[:, 'temperature'] = hourly_temp['temperature'].round(2)
-    result = hourly_temp
+    # Your analysis here
+    result = combined
 else:
-    result = "No data available"
+    result = "No data available for the last week"
 ```
 
-Example 2 - Room comparison:
+Example 2 - Room comparison with timezone handling:
 ```python
 room_stats = []
 room_names = [name for name in locals().keys() if 'Room' in name]
@@ -135,6 +149,12 @@ room_names = [name for name in locals().keys() if 'Room' in name]
 for room_name in room_names:
     if room_name in locals():
         df = locals()[room_name].copy()
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        
+        # Handle timezone
+        if df['timestamp'].dt.tz is None:
+            df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
+        
         avg_temp = df['temperature'].mean()
         if not pd.isna(avg_temp):
             room_stats.append({{'Room': room_name, 'Average_Temperature': round(avg_temp, 2)}})
@@ -147,7 +167,7 @@ else:
 
 User Question: "{user_query}"
 
-Write Python code to answer this question. Remember to use .copy() and .loc[] to avoid pandas warnings:
+Write Python code to answer this question. Remember to handle timezone-aware timestamps properly:
 """
     return prompt_template
 
@@ -158,7 +178,7 @@ def run_openai_code_agent(datasets, user_query):
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant who writes Python code to analyze air quality data. Always ensure your code is complete, handles edge cases, and avoids pandas warnings by using .copy() and .loc[] appropriately."},
+                {"role": "system", "content": "You are a helpful assistant who writes Python code to analyze air quality data. Always ensure your code handles timezone-aware timestamps properly and avoids pandas warnings by using .copy() and .loc[] appropriately."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1
@@ -174,7 +194,7 @@ def run_openai_code_agent(datasets, user_query):
                 code = code[len("python"):].strip()
             code = code.strip()
 
-        # Add necessary imports
+        # Add necessary imports with timezone utilities
         safe_boilerplate = """
 import pandas as pd
 import numpy as np
@@ -182,6 +202,9 @@ from datetime import datetime, timedelta
 import pytz
 import warnings
 warnings.filterwarnings('ignore', category=pd.errors.SettingWithCopyWarning)
+
+# Timezone utilities
+utc = pytz.UTC
 """
 
         final_code = safe_boilerplate + "\n\n" + code
@@ -204,8 +227,12 @@ def execute_user_code(code: str, datasets: dict):
         local_env[var_name] = df.copy()
 
     # Add timezone utilities
-    utc = pytz.UTC
-    local_env['utc'] = utc
+    local_env['utc'] = pytz.UTC
+    local_env['pd'] = pd
+    local_env['np'] = pd  # numpy alias
+    local_env['datetime'] = datetime
+    local_env['timedelta'] = timedelta
+    local_env['pytz'] = pytz
 
     # Redirect stdout to capture prints
     stdout = io.StringIO()
