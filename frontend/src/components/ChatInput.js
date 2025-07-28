@@ -23,7 +23,7 @@ const ChatInput = ({ query, setQuery, onSend, loading }) => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask a question about your air quality data..."
+            placeholder="Ask a question about your data..."
             className="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             rows="1"
             style={{ minHeight: '44px', maxHeight: '120px' }}

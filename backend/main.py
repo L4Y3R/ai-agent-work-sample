@@ -4,12 +4,12 @@ from pydantic import BaseModel
 from agent_utils import load_data_files, run_openai_code_agent, execute_user_code
 import os
 from dotenv import load_dotenv
+from logging_config import setup_logger
 
+logger = setup_logger(__name__)
 load_dotenv()
-
 app = FastAPI()
 
-# CORS setup - MUST be before route definitions
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,19 +18,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-def root():
-    return {"message": "Backend running!"}
-
 class Query(BaseModel):
     query: str
 
 @app.post("/query")
 def process_query(request: Query):
+    logger.info(f"Received Request: {request}")
     datasets = load_data_files()
     user_query = request.query
     # Get code from LLM
     code = run_openai_code_agent(datasets, user_query)
     # Execute code
     output = execute_user_code(code, datasets)
+    logger.info(f"Returned Output: {output}")
     return {"output": output}

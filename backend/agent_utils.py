@@ -12,15 +12,17 @@ from glob import glob
 from datetime import datetime, timedelta
 import pytz
 import textwrap
+from logging_config import setup_logger
+
+logger = setup_logger(__name__)
 
 DATA_DIR = "./data/"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Don't print the API key for security
 if OPENAI_API_KEY:
-    print("OPENAI_API_KEY loaded successfully")
+    logger.info("OPENAI_API_KEY Loaded Succesfuly")
 else:
-    print("WARNING: OPENAI_API_KEY not found")
+    logger.error("OPENAI_API_KEY not found")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -44,7 +46,7 @@ def load_data_files():
                 df = normalize_columns(df)
                 datasets[room_name] = df
         except Exception as e:
-            print(f"Error loading {file_path}: {e}")
+            logger.error(f"Error loading {file_path}: {e}")
 
     return datasets
 
@@ -69,15 +71,15 @@ def normalize_columns(df):
 
     df = df.rename(columns=col_map)
 
-    # Convert timestamp column to datetime dtype if it exists
     if 'timestamp' in df.columns:
         df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
 
+    logger.info("Column Normalization Copleted")
     return df
 
 def create_prompt(datasets, user_query):
     """Create a comprehensive prompt for the LLM"""
-    # Build a description of available data
+    
     data_description = "You have air quality data from these rooms:\n"
     for room, df in datasets.items():
         sample_data = df.head(2).to_string(index=False) if not df.empty else "No data"
@@ -103,7 +105,7 @@ IMPORTANT GUIDELINES:
    - A pandas DataFrame (assign to variable 'result')
    - A descriptive string (assign to variable 'result')
 8. Round numeric values to 2 decimal places for readability
-9. Handle missing data gracefully
+9. Handle missing or unavailable data gracefully, do not retun null.
 10. Use .loc[] for setting values to avoid pandas warnings
 
 EXAMPLES:
@@ -181,7 +183,7 @@ def run_openai_code_agent(datasets, user_query):
                 {"role": "system", "content": "You are a helpful assistant who writes Python code to analyze air quality data. Always ensure your code handles timezone-aware timestamps properly and avoids pandas warnings by using .copy() and .loc[] appropriately."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.1
+            temperature=0.4
         )
         code = response.choices[0].message.content
 
@@ -217,6 +219,7 @@ utc = pytz.UTC
 
 def execute_user_code(code: str, datasets: dict):
     """Execute the generated code safely with the datasets"""
+
     # Prepare the local environment with datasets as variables
     local_env = {}
     for room, df in datasets.items():
@@ -229,7 +232,7 @@ def execute_user_code(code: str, datasets: dict):
     # Add timezone utilities
     local_env['utc'] = pytz.UTC
     local_env['pd'] = pd
-    local_env['np'] = pd  # numpy alias
+    local_env['np'] = pd
     local_env['datetime'] = datetime
     local_env['timedelta'] = timedelta
     local_env['pytz'] = pytz
