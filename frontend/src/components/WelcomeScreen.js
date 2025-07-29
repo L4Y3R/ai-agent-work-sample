@@ -4,7 +4,7 @@ const WelcomeScreen = () => {
   return (
     <div className="flex items-center justify-center h-full">
       <div className="text-center text-gray-500">
-        <h2>Ask me anything about your air quality data!</h2>
+        <h2>Ask me anything about your data!</h2>
         <div className="mt-4 text-sm">
           <p className="mb-1">Try asking:</p>
           <ul className="space-y-1">
