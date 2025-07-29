@@ -26,6 +26,32 @@ else:
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+def format_display_name(name):
+    """Convert underscore names to readable format"""
+    # Handle special cases and common patterns
+    name = str(name)
+    
+    # Replace underscores with spaces
+    formatted = name.replace('_', ' ')
+    
+    # Title case each word
+    formatted = formatted.title()
+    
+    # Handle special cases for better readability
+    replacements = {
+        'Co2': 'CO2',
+        'Avg': 'Average',
+        'Min': 'Minimum',
+        'Max': 'Maximum',
+        'Temp': 'Temperature',
+        'Rh': 'Humidity'
+    }
+    
+    for old, new in replacements.items():
+        formatted = formatted.replace(old, new)
+    
+    return formatted
+
 def load_data_files():
     """Load all .ndjson files from the data directory"""
     all_files = glob(os.path.join(DATA_DIR, "*.ndjson"))
@@ -107,6 +133,9 @@ IMPORTANT GUIDELINES:
 8. Round numeric values to 2 decimal places for readability
 9. Handle missing or unavailable data gracefully, do not retun null.
 10. Use .loc[] for setting values to avoid pandas warnings
+11. **FORMATTING**: Use clean, readable column names without underscores. Use spaces and proper capitalization.
+    - Good: 'Room Name', 'Average Temperature', 'Morning Average'
+    - Bad: 'room_name', 'avg_temp', 'morning_avg'
 
 EXAMPLES:
 
@@ -132,7 +161,7 @@ for room_name in room_names:
         # Filter for last week
         last_week_data = df[df['timestamp'] >= one_week_ago]
         if not last_week_data.empty:
-            last_week_data.loc[:, 'room'] = room_name
+            last_week_data.loc[:, 'Room Name'] = room_name.replace('_', ' ')
             all_rooms.append(last_week_data)
 
 if all_rooms:
@@ -143,7 +172,7 @@ else:
     result = "No data available for the last week"
 ```
 
-Example 2 - Room comparison with timezone handling:
+Example 2 - Room comparison with clean formatting:
 ```python
 room_stats = []
 room_names = [name for name in locals().keys() if 'Room' in name]
@@ -159,7 +188,7 @@ for room_name in room_names:
         
         avg_temp = df['temperature'].mean()
         if not pd.isna(avg_temp):
-            room_stats.append({{'Room': room_name, 'Average_Temperature': round(avg_temp, 2)}})
+            room_stats.append({{'Room Name': room_name.replace('_', ' '), 'Average Temperature': round(avg_temp, 2)}})
 
 if room_stats:
     result = pd.DataFrame(room_stats)
@@ -169,7 +198,10 @@ else:
 
 User Question: "{user_query}"
 
-Write Python code to answer this question. Remember to handle timezone-aware timestamps properly:
+Write Python code to answer this question. Remember to:
+- Handle timezone-aware timestamps properly
+- Use clean, readable column names with spaces instead of underscores
+- Format room names nicely (e.g., "Room 1" instead of "Room_1")
 """
     return prompt_template
 
@@ -180,7 +212,7 @@ def run_openai_code_agent(datasets, user_query):
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant who writes Python code to analyze air quality data. Always ensure your code handles timezone-aware timestamps properly and avoids pandas warnings by using .copy() and .loc[] appropriately."},
+                {"role": "system", "content": "You are a helpful assistant who writes Python code to analyze air quality data. Always ensure your code handles timezone-aware timestamps properly and avoids pandas warnings by using .copy() and .loc[] appropriately. Use clean, readable column names without underscores."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.4
@@ -216,6 +248,27 @@ utc = pytz.UTC
 
     except Exception as e:
         return f"Error calling OpenAI API: {str(e)}"
+
+def format_dataframe_for_display(df):
+    """Format DataFrame columns and content for display"""
+    if not isinstance(df, pd.DataFrame):
+        return df
+    
+    display_df = df.copy()
+    
+    # Format column names
+    new_columns = {}
+    for col in display_df.columns:
+        new_columns[col] = format_display_name(col)
+    
+    display_df = display_df.rename(columns=new_columns)
+    
+    # Format room names in data if there's a room-related column
+    for col in display_df.columns:
+        if 'room' in col.lower():
+            display_df[col] = display_df[col].apply(lambda x: format_display_name(x) if pd.notna(x) else x)
+    
+    return display_df
 
 def execute_user_code(code: str, datasets: dict):
     """Execute the generated code safely with the datasets"""
@@ -261,17 +314,24 @@ def execute_user_code(code: str, datasets: dict):
         return {"success": False, "error": error}
     
     if isinstance(result, pd.DataFrame):
+        # Format the DataFrame for better display
+        formatted_df = format_dataframe_for_display(result)
         return {
             "success": True,
             "type": "dataframe",
-            "data": result.to_dict(orient="records"),
-            "columns": list(result.columns)
+            "data": formatted_df.to_dict(orient="records"),
+            "columns": list(formatted_df.columns)
         }
     elif isinstance(result, (str, int, float)):
+        # Format any room names or underscored text in string results
+        formatted_result = str(result)
+        # Simple pattern matching for common underscore patterns
+        import re
+        formatted_result = re.sub(r'\b(\w+)_(\w+)\b', lambda m: format_display_name(f"{m.group(1)}_{m.group(2)}"), formatted_result)
         return {
             "success": True,
             "type": "text",
-            "data": str(result)
+            "data": formatted_result
         }
     else:
         return {
