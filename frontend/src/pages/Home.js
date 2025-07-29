@@ -74,7 +74,7 @@ const Home = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-screen transition-colors duration-300 bg-gray-50 dark:bg-gray-900">
       <ChatHeader 
         messagesLength={messages.length} 
         onClearChat={clearChat} 

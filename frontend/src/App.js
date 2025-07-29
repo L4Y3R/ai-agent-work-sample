@@ -1,11 +1,12 @@
 import './App.css';
+import { ThemeProvider } from './context/ThemeContext';
 import Home from './pages/Home';
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900">
-      <Home/>
-    </div>
+    <ThemeProvider>
+      <Home />
+    </ThemeProvider>
   );
 }
 
