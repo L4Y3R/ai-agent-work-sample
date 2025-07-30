@@ -38,7 +38,6 @@ An AI-powered assistant that analyzes air quality datasets from multiple rooms, 
 
 - Python 3.9+
 - An OpenAI API key (set as environment variable `OPENAI_API_KEY`)
-- Required Python packages (see `requirements.txt`)
 
 ### Installation
 
