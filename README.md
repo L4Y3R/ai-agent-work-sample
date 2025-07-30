@@ -27,6 +27,9 @@ An AI-powered assistant that analyzes air quality datasets from multiple rooms, 
 ### Dark Mode  
 ![Dark Mode](./screenshots/darkmode.png)
 
+### Prevent Generic Questions
+![Dark Mode](./screenshots/restrict.png)
+
 ### Mobile Responsiveness  
 ![Mobile Responsive](./screenshots/mobile.png)
 
