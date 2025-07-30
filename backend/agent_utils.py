@@ -1,11 +1,13 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import re
 import os
 import io
 import sys
 import json
 import pandas as pd
+import numpy as np
 from openai import OpenAI
 import traceback
 from glob import glob
@@ -20,7 +22,7 @@ DATA_DIR = "./data/"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if OPENAI_API_KEY:
-    logger.info("OPENAI_API_KEY Loaded Succesfuly")
+    logger.info("OPENAI_API_KEY loaded successfully")
 else:
     logger.error("OPENAI_API_KEY not found")
 
@@ -100,7 +102,7 @@ def normalize_columns(df):
     if 'timestamp' in df.columns:
         df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
 
-    logger.info("Column Normalization Copleted")
+    logger.info("Column normalization completed")
     return df
 
 def create_prompt(datasets, user_query):
@@ -270,27 +272,31 @@ def format_dataframe_for_display(df):
     
     return display_df
 
+def clean_variable_name(name: str) -> str:
+    """Sanitize dataset variable names for code execution"""
+    var_name = name.replace(" ", "_").replace(".", "_").replace("-", "_")
+    if var_name.startswith("sensor_data_"):
+        var_name = var_name[len("sensor_data_"):]
+    return var_name
+
 def execute_user_code(code: str, datasets: dict):
     """Execute the generated code safely with the datasets"""
 
     # Prepare the local environment with datasets as variables
     local_env = {}
     for room, df in datasets.items():
-        var_name = room.replace(" ", "_").replace(".", "_").replace("-", "_")
-        if var_name.startswith("sensor_data_"):
-            var_name = var_name[len("sensor_data_"):]
-        # Make a copy to avoid pandas warnings
+        var_name = clean_variable_name(room)
         local_env[var_name] = df.copy()
 
-    # Add timezone utilities
+    # Add timezone and pandas/numpy utilities
     local_env['utc'] = pytz.UTC
     local_env['pd'] = pd
-    local_env['np'] = pd
+    local_env['np'] = np
+
     local_env['datetime'] = datetime
     local_env['timedelta'] = timedelta
     local_env['pytz'] = pytz
 
-    # Redirect stdout to capture prints
     stdout = io.StringIO()
     sys_stdout = sys.stdout
     sys.stdout = stdout
@@ -300,13 +306,16 @@ def execute_user_code(code: str, datasets: dict):
 
     try:
         exec(code, {"__builtins__": __builtins__}, local_env)
+
         if 'result' in local_env:
             result = local_env['result']
         else:
             printed_output = stdout.getvalue().strip()
             result = printed_output if printed_output else "Code executed successfully but no result was returned."
+
     except Exception as e:
         error = str(e) + "\n" + traceback.format_exc()
+
     finally:
         sys.stdout = sys_stdout
 
@@ -314,7 +323,6 @@ def execute_user_code(code: str, datasets: dict):
         return {"success": False, "error": error}
     
     if isinstance(result, pd.DataFrame):
-        # Format the DataFrame for better display
         formatted_df = format_dataframe_for_display(result)
         return {
             "success": True,
@@ -322,17 +330,20 @@ def execute_user_code(code: str, datasets: dict):
             "data": formatted_df.to_dict(orient="records"),
             "columns": list(formatted_df.columns)
         }
+
     elif isinstance(result, (str, int, float)):
-        # Format any room names or underscored text in string results
         formatted_result = str(result)
-        # Simple pattern matching for common underscore patterns
-        import re
-        formatted_result = re.sub(r'\b(\w+)_(\w+)\b', lambda m: format_display_name(f"{m.group(1)}_{m.group(2)}"), formatted_result)
+        formatted_result = re.sub(
+            r'\b(\w+)_(\w+)\b',
+            lambda m: format_display_name(f"{m.group(1)}_{m.group(2)}"),
+            formatted_result
+        )
         return {
             "success": True,
             "type": "text",
             "data": formatted_result
         }
+
     else:
         return {
             "success": True,

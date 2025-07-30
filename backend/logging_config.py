@@ -1,14 +1,27 @@
+import os
 import logging
-import sys
 
-def setup_logger(name=__name__):
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+LEVELS = {
+    "CRITICAL": logging.CRITICAL,
+    "ERROR": logging.ERROR,
+    "WARNING": logging.WARNING,
+    "INFO": logging.INFO,
+    "DEBUG": logging.DEBUG,
+    "NOTSET": logging.NOTSET,
+}
+
+log_level = LEVELS.get(LOG_LEVEL, logging.INFO)
+
+def setup_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
+    if not logger.hasHandlers():
+        logger.setLevel(log_level)
 
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
+        handler = logging.StreamHandler()
         formatter = logging.Formatter(
-            "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)

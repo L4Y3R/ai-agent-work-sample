@@ -1,13 +1,14 @@
+from dotenv import load_dotenv
+load_dotenv()
+
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from agent_utils import load_data_files, run_openai_code_agent, execute_user_code
-import os
-from dotenv import load_dotenv
 from logging_config import setup_logger
 
 logger = setup_logger(__name__)
-load_dotenv()
 app = FastAPI()
 
 app.add_middleware(
@@ -21,14 +22,16 @@ app.add_middleware(
 class Query(BaseModel):
     query: str
 
-@app.post("/query")
-def process_query(request: Query):
-    logger.info(f"Received Request: {request}")
+@app.on_event("startup")
+def load_data():
+    global datasets
     datasets = load_data_files()
-    user_query = request.query
-    # Get code from LLM
-    code = run_openai_code_agent(datasets, user_query)
-    # Execute code
+    logger.info("Datasets loaded on startup")
+
+@app.post("/query")
+def process_query(request: Query) -> dict:
+    logger.info(f"Received query: {request.query}")
+    code = run_openai_code_agent(datasets, request.query)
     output = execute_user_code(code, datasets)
-    logger.info(f"Returned Output: {output}")
+    logger.info(f"Returned output: {output}")
     return {"output": output}
