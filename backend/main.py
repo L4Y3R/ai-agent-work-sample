@@ -30,8 +30,21 @@ def load_data():
 
 @app.post("/query")
 def process_query(request: Query) -> dict:
-    logger.info(f"Received query: {request.query}")
-    code = run_openai_code_agent(datasets, request.query)
-    output = execute_user_code(code, datasets)
-    logger.info(f"Returned output: {output}")
-    return {"output": output}
+    try:
+        logger.info(f"Received query: {request.query}")
+        code = run_openai_code_agent(datasets, request.query)
+        if isinstance(code, dict) and not code.get("success"):
+            return {"output": code}
+            
+        output = execute_user_code(code, datasets)
+        logger.info(f"Returned output: {output}")
+        return {"output": output}
+    except Exception as e:
+        logger.error(f"Unexpected error processing query: {str(e)}\n{traceback.format_exc()}")
+        return {
+            "output": {
+                "success": False,
+                "type": "text",
+                "data": "An unexpected error occurred. Our team has been notified."
+            }
+        }

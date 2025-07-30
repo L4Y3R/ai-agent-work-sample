@@ -75,7 +75,7 @@ def load_data_files():
                 df = normalize_columns(df)
                 datasets[room_name] = df
         except Exception as e:
-            logger.error(f"Error loading {file_path}: {e}")
+            logger.error(f"Error loading data file: {e}")
 
     return datasets
 
@@ -258,7 +258,12 @@ utc = pytz.UTC
         return final_code
 
     except Exception as e:
-        return f"Error calling OpenAI API: {str(e)}"
+        logger.error(f"OpenAI API Error: {str(e)}")
+        return {
+            "success": False,
+            "type": "text",
+            "data": "Sorry, I'm having trouble connecting to the AI service."
+        }
 
 def format_dataframe_for_display(df):
     """Format DataFrame columns and content for display"""
@@ -321,8 +326,20 @@ def execute_user_code(code: str, datasets: dict):
                 return {"success": False, "data": "Invalid code format received"}
         
         if not isinstance(code, str):
-            return {"success": False, "data": f"Generated code is not a string, got {type(code)}"}
+            logger.error(f"Generated code is not a string, got {type(code)}")
+            return {"success": False, "data": f"Please try again"}
 
+        # SECURITY WARNING: This executes arbitrary Python code and is UNSAFE for production
+        # - Allows full filesystem access (read/write/delete)
+        # - Permits system command execution
+        # - Enables network access
+        # - No sandboxing or memory limits
+        # ONLY use in controlled development environments
+        # For production, implement:
+        # 1. Proper sandboxing (Docker, gVisor, nsjail)
+        # 2. Timeout enforcement
+        # 3. Restricted builtins
+        # 4. Input validation
         exec(code, {"__builtins__": __builtins__}, local_env)
 
         if 'result' in local_env:
@@ -332,13 +349,14 @@ def execute_user_code(code: str, datasets: dict):
             result = printed_output if printed_output else "Code executed successfully but no result was returned."
 
     except Exception as e:
+        logger.error(f"Code execution failed: {str(e)}\n{traceback.format_exc()}")
         error = str(e) + "\n" + traceback.format_exc()
 
     finally:
         sys.stdout = sys_stdout
 
     if error:
-        return {"success": False, "data": error}
+        return {"success": False, "data": "Sorry I have encountered an error while processing your request. Please try again"}
     
     if isinstance(result, pd.DataFrame):
         formatted_df = format_dataframe_for_display(result)
