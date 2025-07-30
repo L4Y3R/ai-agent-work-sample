@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 import pytz
 import textwrap
 from logging_config import setup_logger
+from utils import is_query_valid
 
 logger = setup_logger(__name__)
 
@@ -209,6 +210,14 @@ Write Python code to answer this question. Remember to:
 
 def run_openai_code_agent(datasets, user_query):
     """Generate Python code using OpenAI to answer the user query"""
+
+    if not is_query_valid(user_query):
+        return {
+            "success": False,
+            "type": "text",
+            "data": "Sorry, I couldn't understand your question. Please try rephrasing it."
+        }
+
     prompt = create_prompt(datasets, user_query)
     try:
         response = client.chat.completions.create(
@@ -292,7 +301,6 @@ def execute_user_code(code: str, datasets: dict):
     local_env['utc'] = pytz.UTC
     local_env['pd'] = pd
     local_env['np'] = np
-
     local_env['datetime'] = datetime
     local_env['timedelta'] = timedelta
     local_env['pytz'] = pytz
@@ -305,6 +313,16 @@ def execute_user_code(code: str, datasets: dict):
     error = None
 
     try:
+        # Check if code is actually an error response from run_openai_code_agent
+        if isinstance(code, dict):
+            if code.get("success") == False:
+                return code  # Return the error dict as-is
+            else:
+                return {"success": False, "data": "Invalid code format received"}
+        
+        if not isinstance(code, str):
+            return {"success": False, "data": f"Generated code is not a string, got {type(code)}"}
+
         exec(code, {"__builtins__": __builtins__}, local_env)
 
         if 'result' in local_env:
@@ -320,7 +338,7 @@ def execute_user_code(code: str, datasets: dict):
         sys.stdout = sys_stdout
 
     if error:
-        return {"success": False, "error": error}
+        return {"success": False, "data": error}
     
     if isinstance(result, pd.DataFrame):
         formatted_df = format_dataframe_for_display(result)
