@@ -31,18 +31,3 @@ An AI-powered assistant that analyzes air quality datasets from multiple rooms, 
 ![Mobile Responsive](./screenshots/mobile.png)
 
 ---
-
-## Getting Started
-
-### Prerequisites
-
-- Python 3.9+
-- An OpenAI API key (set as environment variable `OPENAI_API_KEY`)
-
-### Installation
-
-1. Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/your-repo-name.git
-cd your-repo-name
