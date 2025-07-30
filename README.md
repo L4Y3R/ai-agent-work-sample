@@ -19,16 +19,16 @@ An AI-powered assistant that analyzes air quality datasets from multiple rooms, 
 ## Demo Screenshots
 
 ### Loading Screen  
-![Loading Screen](./screenshots/loading_screen.png)
+![Loading Screen](./screenshots/loading.png)
 
 ### Light Mode  
-![Light Mode](./screenshots/light_mode.png)
+![Light Mode](./screenshots/lightmode.png)
 
 ### Dark Mode  
-![Dark Mode](./screenshots/dark_mode.png)
+![Dark Mode](./screenshots/darkmode.png)
 
 ### Mobile Responsiveness  
-![Mobile Responsive](./screenshots/mobile_responsive.png)
+![Mobile Responsive](./screenshots/mobile.png)
 
 ---
 
